@@ -84,12 +84,3 @@ Deleting:
 
 This code will allow you to manipulate the same keychain item in both apps.
 
-# Example Projects
-
-### iOS
-The iOS example project has three targets. Each target will install an application that shows two UITextFields: one for local password and another for shared password. Anything you enter in the "Local Password" field will be accessible only in the application it was entered and anything entered in "Shared Password" will be shared amongst the three applications.
-
-If you change the access group in FDRootViewController.m to have the App Id of the provisioning profile you are going to use to sign the app you can then install all three targets to your device and see an example of shared keychain items.
-
-### Mac
-The Mac example project is incredibly rudimentary at the moment. It brings up a simple window with a text field and any information in that text field is saved to the keychain.
