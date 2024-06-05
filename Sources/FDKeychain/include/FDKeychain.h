@@ -83,7 +83,19 @@ Attempts to retrieve the item from the keychain with the specified key, service 
 
 @return Returns the item if it exists in the keychain or nil if they item does not exist in the keychain. If nil is returned an error may have also occurred.
 */
-+ (id)itemForKey: (NSString *)key 
++ (id)itemForKey: (NSString *)key
+       ofClasses: (NSSet<Class> *) classes
+      forService: (NSString *)service
+   inAccessGroup: (NSString *)accessGroup
+           error: (NSError **)error;
+
++ (id)itemForKey: (NSString *)key
+       ofClass: (Class) cls
+      forService: (NSString *)service
+   inAccessGroup: (NSString *)accessGroup
+           error: (NSError **)error;
+
++ (id)itemForKey: (NSString *)key
 	forService: (NSString *)service 
 	inAccessGroup: (NSString *)accessGroup 
 	error: (NSError **)error;
@@ -113,22 +125,29 @@ Attempts to save the item to the keychain under the associated key, service and 
 
 @return Returns YES if the item was saved successfully. Returns NO if an error occurred.
 */
-+ (BOOL)saveItem: (id<NSCoding>)item 
-	forKey: (NSString *)key 
-	forService: (NSString *)service 
-	inAccessGroup: (NSString *)accessGroup 
-	withAccessibility: (FDKeychainAccessibility)accessibility 
-	error: (NSError **)error;
++ (BOOL)saveItem: (id<NSCoding>)item
+    secureCoding: (BOOL) secureCoding
+    forKey: (NSString *)key
+    forService: (NSString *)service
+    inAccessGroup: (NSString *)accessGroup
+    withAccessibility: (FDKeychainAccessibility)accessibility
+           error: (NSError **)error;
 
 /**
 Helper method for saveItem:forKey:forService:inAccessGroup:withAccessibility:error: that omits the access group.
 
 @see saveItem:forKey:forService:inAccessGroup:withAccessibility:error:
 */
-+ (BOOL)saveItem: (id<NSCoding>)item 
-	forKey: (NSString *)key 
-	forService: (NSString *)service 
-	error: (NSError **)error;
++ (BOOL)saveItem: (id<NSCoding>)item
+    secureCoding: (BOOL) secureCoding
+          forKey: (NSString *)key
+      forService: (NSString *)service
+           error: (NSError **)error;
+
++ (BOOL)saveItem: (id<NSCoding>)item
+          forKey: (NSString *)key
+      forService: (NSString *)service
+           error: (NSError **)error;
 
 /// ------------
 /// @name Delete

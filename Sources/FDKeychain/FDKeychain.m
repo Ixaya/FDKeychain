@@ -49,10 +49,56 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 	return rawData;
 }
 
-+ (id)itemForKey: (NSString *)key 
-	forService: (NSString *)service 
-	inAccessGroup: (NSString *)accessGroup 
-	error: (NSError **)error
++ (id)itemForKey: (NSString *)key
+       ofClass: (Class) cls
+      forService: (NSString *)service
+   inAccessGroup: (NSString *)accessGroup
+           error: (NSError **)error
+{
+    // Load the raw data for the item from the keychain.
+    NSData *rawData = [self rawDataForKey: key
+        forService: service
+        inAccessGroup: accessGroup
+        error: error];
+
+    // Unarchive the data that was received from the keychain.
+    id item = nil;
+
+    if (rawData != nil)
+    {
+        // Catch any exceptions that occur when unarchiving an item and return a appropriate error object.
+        // This is useful for the scenario where the encoded object may have changed and can no longer be decoded properly. Rather than crash the application outright give the user the ability to recover from it.
+        @try
+        {
+
+            id itemRaw = [NSKeyedUnarchiver unarchivedObjectOfClass:cls fromData:rawData error:error];
+
+            if ([itemRaw isKindOfClass:cls])
+            {
+                    item = itemRaw;
+            }
+            else if (error != NULL)
+            {
+                *error = [self _errorForResultCode:FDKeychainUnarchiveErrorCode withKey:key forService:service];
+            }
+
+        }
+        @catch (NSException *exception)
+        {
+            if (error != NULL)
+            {
+                *error = [self _error:exception.reason forResultCode:FDKeychainUnarchiveErrorCode];
+            }
+        }
+    }
+
+    return item;
+}
++ (id)itemForKey: (NSString *)key
+       ofClasses: (NSSet<Class> *) classes
+      forService: (NSString *)service
+   inAccessGroup: (NSString *)accessGroup
+           error: (NSError **)error
 {
 	// Load the raw data for the item from the keychain.
 	NSData *rawData = [self rawDataForKey: key 
@@ -69,19 +115,14 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 		// This is useful for the scenario where the encoded object may have changed and can no longer be decoded properly. Rather than crash the application outright give the user the ability to recover from it.
 		@try
 		{
-			item = [NSKeyedUnarchiver unarchiveObjectWithData: rawData];
+            item = [NSKeyedUnarchiver unarchivedObjectOfClasses:classes fromData:rawData error:nil];
+
 		}
 		@catch (NSException *exception)
 		{
 			if (error != NULL)
 			{
-				NSDictionary *userInfo = @{ 
-					NSLocalizedFailureReasonErrorKey : exception.reason 
-				};
-			
-				*error = [NSError errorWithDomain: FDKeychainErrorDomain 
-					code: FDKeychainUnarchiveErrorCode 
-					userInfo: userInfo];
+                *error = [self _error:exception.reason forResultCode:FDKeychainUnarchiveErrorCode];
 			}
 		}
 	}
@@ -89,7 +130,23 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 	return item;
 }
 
-+ (id)itemForKey: (NSString *)key 
++ (id)itemForKey: (NSString *)key
+    forService: (NSString *)service
+    inAccessGroup: (NSString *)accessGroup
+    error: (NSError **)error
+{
+    NSSet *classes = [NSSet setWithObjects:NSArray.class, NSDictionary.class, NSSet.class, NSString.class, NSNumber.class, NSDate.class, nil];
+
+    id item = [FDKeychain itemForKey: key
+                           ofClasses: classes
+                          forService: service
+                       inAccessGroup: accessGroup
+                               error: error];
+
+    return item;
+
+}
++ (id)itemForKey: (NSString *)key
 	forService: (NSString *)service 
 	error: (NSError **)error
 {
@@ -101,8 +158,9 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 	return item;
 }
 
-+ (BOOL)saveItem: (id<NSCoding>)item 
-	forKey: (NSString *)key 
++ (BOOL)saveItem: (id<NSCoding>)item
+    secureCoding: (BOOL) secureCoding
+	forKey: (NSString *)key
 	forService: (NSString *)service 
 	inAccessGroup: (NSString *)accessGroup 
 	withAccessibility: (FDKeychainAccessibility)accessibility
@@ -157,9 +215,14 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 		// Otherwise, if the keychain did not error out when checking if the item existed proceed with saving the item to the keychain.
 		else
 		{
-			// Archive the item so it can be saved to the keychain.
-			NSData *valueData = [NSKeyedArchiver archivedDataWithRootObject: item];
-			
+			// Archive the item so it can be saved to the keychain, if its already NSData no need to.
+            NSData *valueData;
+            if (secureCoding){
+                valueData = [NSKeyedArchiver archivedDataWithRootObject:item requiringSecureCoding:true error:nil];
+            } else {
+                valueData = (NSData*)item;
+            }
+
 			// If the item does not exist add it to the keychain.
 			if (itemFromKeychain == nil)
 			{
@@ -260,19 +323,35 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 	return saveSuccessful;
 }
 
-+ (BOOL)saveItem: (id<NSCoding>)item 
-	forKey: (NSString *)key 
-	forService: (NSString *)service 
-	error: (NSError **)error
++ (BOOL)saveItem: (id<NSCoding>)item
+    secureCoding: (BOOL) secureCoding
+          forKey: (NSString *)key
+      forService: (NSString *)service
+           error: (NSError **)error
 {
-	BOOL saveSuccessful = [FDKeychain saveItem: item 
-		forKey: key 
-		forService: service 
-		inAccessGroup: nil 
-		withAccessibility: FDKeychainAccessibleAfterFirstUnlock 
-		error: error];
-	
-	return saveSuccessful;
+    BOOL saveSuccessful = [FDKeychain saveItem: item
+                                  secureCoding: secureCoding
+                                        forKey: key
+                                    forService: service
+                                 inAccessGroup: nil
+                             withAccessibility: FDKeychainAccessibleAfterFirstUnlock
+                                         error: error];
+
+    return saveSuccessful;
+}
+
++ (BOOL)saveItem: (id<NSCoding>)item
+    forKey: (NSString *)key
+    forService: (NSString *)service
+    error: (NSError **)error
+{
+    BOOL saveSuccessful = [FDKeychain saveItem: item
+                                  secureCoding: true
+                                        forKey: key
+                                    forService: service
+                                         error: error];
+
+    return saveSuccessful;
 }
 
 + (BOOL)deleteItemForKey: (NSString *)key 
@@ -351,7 +430,14 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 
 #pragma mark - Private Methods
 
-+ (NSError *)_errorForResultCode: (OSStatus)resultCode 
++ (NSError *)_error:(NSString*)localizedDescription forResultCode: (OSStatus)resultCode
+{
+    return [NSError errorWithDomain: FDKeychainErrorDomain
+                               code: resultCode
+                           userInfo: @{ NSLocalizedDescriptionKey : localizedDescription }];
+}
+
++ (NSError *)_errorForResultCode: (OSStatus)resultCode
 	withKey: (NSString *)key 
 	forService: (NSString *)service
 {
@@ -386,6 +472,15 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 			break;
 		}
 
+        case FDKeychainUnarchiveErrorCode:
+        {
+            localizedDescription = [NSString stringWithFormat: @"Item with key '%@' for service '%@' is not of the expected class.",
+                key,
+                service];
+
+            break;
+        }
+
 		default:
 		{
 			localizedDescription = @"This is a undefined error. Check SecBase.h or Apple's iOS Developer Library for more information on this Keychain Services error code.";
@@ -394,11 +489,7 @@ NSString * const FDKeychainErrorDomain = @"com.1414degrees.keychain";
 		}
 	}
 	
-	NSError *error = [NSError errorWithDomain: FDKeychainErrorDomain 
-		code: resultCode 
-		userInfo: @{ NSLocalizedDescriptionKey : localizedDescription }];
-	
-	return error;
+    return [self _error:localizedDescription forResultCode:resultCode];
 }
 
 + (NSMutableDictionary *)_baseQueryDictionaryForKey: (NSString *)key 

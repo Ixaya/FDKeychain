@@ -2,11 +2,34 @@ import XCTest
 @testable import FDKeychain
 
 final class FDKeychainTests: XCTestCase {
-    func testExample() throws {
-        // XCTest Documentation
-        // https://developer.apple.com/documentation/xctest
+    let value: NSString = NSString(string: "Test1")
+    let key = "keytest"
+    let service = "com.fdkeychain"
 
-        // Defining Test Cases and Test Methods
-        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
+    override func setUp() {
+            super.setUp()
+            try? FDKeychain.saveItem(value as NSCoding, forKey: key, forService: service)
+        }
+
+    override func tearDown() {
+            // Clean up any resources
+        try? FDKeychain.deleteItem(forKey: key, forService: service)
+            super.tearDown()
+        }
+
+    func testString()  {
+        
+        let item = try? FDKeychain.item(forKey: key, of: NSString.classForCoder(), forService: service, inAccessGroup: nil) as? NSString
+
+        XCTAssertEqual(item, value)
+    }
+
+    func testWrongKind()  {
+        do {
+            let itemFail = try FDKeychain.item(forKey: key, of: NSNumber.classForCoder(), forService: service, inAccessGroup: nil) as? NSString
+            XCTAssertNil(itemFail)
+        } catch {
+            XCTAssertTrue(true)
+        }
     }
 }
